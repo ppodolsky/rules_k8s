@@ -75,7 +75,6 @@ func (r *Resolver) Resolve() (resolvedTemplate string, err error) {
 		return "", fmt.Errorf("Failed to initialize the stamper: %w", err)
 	}
 
-	specs := []imageSpec{}
 	substitutions := map[string]string{}
 	if r.flags.SubstitutionsFile != "" {
 		substitutions, err = parseSubstitutions(r.flags.SubstitutionsFile, stamper)
@@ -84,20 +83,9 @@ func (r *Resolver) Resolve() (resolvedTemplate string, err error) {
 		}
 	}
 
-	resolvedImages, unseen, err := r.publish(specs, stamper)
-	if err != nil {
-		return "", fmt.Errorf("Unable to publish images: %w", err)
-	}
-	resolvedTemplate, err = resolveTemplate(r.flags.K8sTemplate, resolvedImages, unseen, substitutions)
+	resolvedTemplate, err = resolveTemplate(r.flags.K8sTemplate, substitutions)
 	if err != nil {
 		return resolvedTemplate, fmt.Errorf("Unable to resolve template file %q: %w", r.flags.K8sTemplate, err)
-	}
-	if len(unseen) > 0 && !r.flags.AllowUnusedImages {
-		log.Printf("The following images given as --image_spec were not found in the template:")
-		for i := range unseen {
-			log.Printf("%s", i)
-		}
-		return resolvedTemplate, fmt.Errorf("--allow_unused_images can be specified to ignore this error.")
 	}
 	return
 }
@@ -481,7 +469,7 @@ func (r *yamlResolver) resolveYAML(t io.Reader) ([]byte, error) {
 // set of image names that haven't been seen yet. The given set of unseen images
 // is updated to exclude the image names encountered in the given template. The
 // given substitutions are made in the template.
-func resolveTemplate(templateFile string, resolvedImages map[string]string, unseen map[string]bool, substitutions map[string]string) (string, error) {
+func resolveTemplate(templateFile string, substitutions map[string]string) (string, error) {
 	t, err := ioutil.ReadFile(templateFile)
 	if err != nil {
 		return "", fmt.Errorf("unable to read template file %q: %v", templateFile, err)
@@ -490,16 +478,5 @@ func resolveTemplate(templateFile string, resolvedImages map[string]string, unse
 	for k, v := range substitutions {
 		t = bytes.ReplaceAll(t, []byte(k), []byte(v))
 	}
-
-	r := yamlResolver{
-		resolvedImages: resolvedImages,
-		unseen:         unseen,
-		strResolver:    resolveString,
-	}
-
-	resolved, err := r.resolveYAML(bytes.NewReader(t))
-	if err != nil {
-		return "", fmt.Errorf("unable to resolve YAML template %q: %v", templateFile, err)
-	}
-	return string(resolved), nil
+	return string(t), nil
 }
