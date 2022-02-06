@@ -76,14 +76,6 @@ func (r *Resolver) Resolve() (resolvedTemplate string, err error) {
 	}
 
 	specs := []imageSpec{}
-	for _, s := range r.flags.ImgSpecs {
-		spec, err := parseImageSpec(s)
-		if err != nil {
-			return "", fmt.Errorf("Unable to parse image spec %q: %s", s, err)
-		}
-		specs = append(specs, spec)
-	}
-
 	substitutions := map[string]string{}
 	if r.flags.SubstitutionsFile != "" {
 		substitutions, err = parseSubstitutions(r.flags.SubstitutionsFile, stamper)
